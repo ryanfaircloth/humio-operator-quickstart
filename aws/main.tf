@@ -20,10 +20,10 @@ provider "aws" {
   # ... other configuration ...
   default_tags {
     tags = {
-      Name        = local.cluster_name
-      Environment = var.environment
-      Owner       = var.owner
-      App         = "humio"
+      Name          = local.cluster_name
+      Environment   = var.environment
+      Owner         = var.owner
+      App           = "humio"
       DeployVersion = "0.1.0"
       ManagedBy     = "Terraform"
     }
@@ -43,4 +43,18 @@ resource "random_string" "suffix" {
   lower   = true
   upper   = false
   number  = false
+}
+
+provider "kubernetes" {
+  host                   = data.aws_eks_cluster.cluster.endpoint
+  cluster_ca_certificate = base64decode(data.aws_eks_cluster.cluster.certificate_authority.0.data)
+  token                  = data.aws_eks_cluster_auth.cluster.token
+}
+
+provider "helm" {
+  kubernetes {
+    host                   = data.aws_eks_cluster.cluster.endpoint
+    cluster_ca_certificate = base64decode(data.aws_eks_cluster.cluster.certificate_authority[0].data)
+    token                  = data.aws_eks_cluster_auth.cluster.token
+  }
 }

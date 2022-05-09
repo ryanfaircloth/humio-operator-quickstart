@@ -3,3 +3,5 @@ aws/.terraform.lock.hcl
 aws/.terraform.tfstate.lock.info
 aws/terraform.tfstate
 aws/terraform.tfstate.backup
+aws/production.auto.tfvars
+eks/echoserver-ingress.yaml

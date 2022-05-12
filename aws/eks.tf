@@ -12,6 +12,23 @@ resource "aws_security_group" "eks_msk" {
 
 }
 
+module "vpc_cni_irsa" {
+  source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
+  version = "~> 4.12"
+
+  role_name_prefix      = "VPC-CNI-IRSA"
+  attach_vpc_cni_policy = true
+  vpc_cni_enable_ipv6   = true
+
+  oidc_providers = {
+    main = {
+      provider_arn               = module.eks.oidc_provider_arn
+      namespace_service_accounts = ["kube-system:aws-node"]
+    }
+  }
+
+}
+
 module "eks" {
   source          = "terraform-aws-modules/eks/aws"
   version         = "<19.0"
@@ -30,7 +47,8 @@ module "eks" {
     }
     kube-proxy = {}
     vpc-cni = {
-      resolve_conflicts = "OVERWRITE"
+      resolve_conflicts        = "OVERWRITE"
+      service_account_role_arn = module.vpc_cni_irsa.iam_role_arn
     }
   }
   manage_aws_auth_configmap = true
@@ -52,12 +70,45 @@ module "eks" {
     data.aws_caller_identity.current.account_id
   ]
 
+  # # Extend cluster security group rules
+  # cluster_security_group_additional_rules = {
+  #   egress_nodes_ephemeral_ports_tcp = {
+  #     description                = "To node 1025-65535"
+  #     protocol                   = "tcp"
+  #     from_port                  = 1025
+  #     to_port                    = 65535
+  #     type                       = "egress"
+  #     source_node_security_group = true
+  #   }
+  # }
+
+  # # Extend node-to-node security group rules
+  # node_security_group_additional_rules = {
+  #   ingress_self_all = {
+  #     description = "Node to node all ports/protocols"
+  #     protocol    = "-1"
+  #     from_port   = 0
+  #     to_port     = 0
+  #     type        = "ingress"
+  #     self        = true
+  #   }
+  #   egress_all = {
+  #     description      = "Node all egress"
+  #     protocol         = "-1"
+  #     from_port        = 0
+  #     to_port          = 0
+  #     type             = "egress"
+  #     cidr_blocks      = ["0.0.0.0/0"]
+  #     ipv6_cidr_blocks = ["::/0"]
+  #   }
+  # }
+
   eks_managed_node_group_defaults = {
     ami_type       = "AL2_x86_64"
     instance_types = [var.humio_instance_type]
 
     attach_cluster_primary_security_group = true
-    vpc_security_group_ids                = [aws_security_group.eks_msk.id]
+    #vpc_security_group_ids                = [aws_security_group.eks_msk.id]
   }
 
   eks_managed_node_groups = {
